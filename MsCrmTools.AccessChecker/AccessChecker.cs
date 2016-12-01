@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using Microsoft.Xrm.Sdk.Metadata.Query;
 using XrmToolBox.Extensibility;
 using XrmToolBox.Extensibility.Interfaces;
 
@@ -94,7 +95,7 @@ namespace MsCrmTools.AccessChecker
                 return;
             }
 
-            var lp = new LookupSingle(((EntityInfo)cBoxEntities.SelectedItem).LogicalName, Service);
+            var lp = new LookupSingle(((EntityInfo)cBoxEntities.SelectedItem).Metadata, Service);
             lp.StartPosition = FormStartPosition.CenterParent;
             if (lp.ShowDialog() == DialogResult.OK)
             {
@@ -155,10 +156,25 @@ namespace MsCrmTools.AccessChecker
                 AsyncArgument = null,
                 Work = (bw, e) =>
                 {
-                    var request = new RetrieveAllEntitiesRequest { EntityFilters = EntityFilters.Entity };
-                    var response = (RetrieveAllEntitiesResponse)Service.Execute(request);
+                    var entityQueryExpression = new EntityQueryExpression
+                    {
+                        Properties =
+                            new MetadataPropertiesExpression("LogicalName", "DisplayName", "Attributes",
+                                "ObjectTypeCode", "PrimaryNameAttribute", "PrimaryIdAttribute"),
+                        AttributeQuery = new AttributeQueryExpression
+                        {
+                            Properties =
+                                new MetadataPropertiesExpression("DisplayName", "LogicalName", "AttributeType",
+                                    "AttributeOf","OptionSet"),
+                        }
+                    };
+                    var retrieveMetadataChangesRequest = new RetrieveMetadataChangesRequest
+                    {
+                        Query = entityQueryExpression,
+                        ClientVersionStamp = null
+                    };
 
-                    e.Result = response.EntityMetadata;
+                    e.Result = ((RetrieveMetadataChangesResponse) Service.Execute(retrieveMetadataChangesRequest)).EntityMetadata;
                 },
                 PostWorkCallBack = e =>
                 {
@@ -168,11 +184,11 @@ namespace MsCrmTools.AccessChecker
                     }
                     else
                     {
-                        var emds = (EntityMetadata[])e.Result;
+                        var emds = (EntityMetadataCollection)e.Result;
 
                         foreach (var emd in emds)
                         {
-                            cBoxEntities.Items.Add(new EntityInfo(emd.LogicalName, emd.DisplayName != null && emd.DisplayName.UserLocalizedLabel != null ? emd.DisplayName.UserLocalizedLabel.Label : "N/A", emd.PrimaryNameAttribute));
+                            cBoxEntities.Items.Add(new EntityInfo(emd));
                         }
 
                         cBoxEntities.DrawMode = DrawMode.OwnerDrawFixed;
