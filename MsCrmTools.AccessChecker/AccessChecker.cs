@@ -2,12 +2,12 @@
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
+using Microsoft.Xrm.Sdk.Metadata.Query;
 using MsCrmTools.AccessChecker.Forms;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using Microsoft.Xrm.Sdk.Metadata.Query;
 using XrmToolBox.Extensibility;
 using XrmToolBox.Extensibility.Interfaces;
 
@@ -53,7 +53,7 @@ namespace MsCrmTools.AccessChecker
             }
         }
 
-        #endregion
+        #endregion Interfaces implementation
 
         #region Methods
 
@@ -165,7 +165,7 @@ namespace MsCrmTools.AccessChecker
                         {
                             Properties =
                                 new MetadataPropertiesExpression("DisplayName", "LogicalName", "AttributeType",
-                                    "AttributeOf","OptionSet"),
+                                    "AttributeOf", "OptionSet"),
                         }
                     };
                     var retrieveMetadataChangesRequest = new RetrieveMetadataChangesRequest
@@ -174,7 +174,7 @@ namespace MsCrmTools.AccessChecker
                         ClientVersionStamp = null
                     };
 
-                    e.Result = ((RetrieveMetadataChangesResponse) Service.Execute(retrieveMetadataChangesRequest)).EntityMetadata;
+                    e.Result = ((RetrieveMetadataChangesResponse)Service.Execute(retrieveMetadataChangesRequest)).EntityMetadata;
                 },
                 PostWorkCallBack = e =>
                 {
@@ -263,49 +263,42 @@ namespace MsCrmTools.AccessChecker
                     // Check Privileges
                     foreach (string privlegeName in privileges.Keys)
                     {
-                        if (privlegeName.StartsWith("prvappend"))
-                        {
-                            result.HasAppendAccess = (response.AccessRights & AccessRights.AppendAccess) == AccessRights.AppendAccess;
-                            result.AppendPrivilegeId = privileges[privlegeName];
-                        }
-
                         if (privlegeName.StartsWith("prvappendto"))
                         {
                             result.HasAppendToAccess = (response.AccessRights & AccessRights.AppendToAccess) == AccessRights.AppendToAccess;
                             result.AppendToPrivilegeId = privileges[privlegeName];
                         }
-
-                        if (privlegeName.StartsWith("prvassign"))
+                        else if (privlegeName.StartsWith("prvappend"))
+                        {
+                            result.HasAppendAccess = (response.AccessRights & AccessRights.AppendAccess) == AccessRights.AppendAccess;
+                            result.AppendPrivilegeId = privileges[privlegeName];
+                        }
+                        else if (privlegeName.StartsWith("prvassign"))
                         {
                             result.HasAssignAccess = (response.AccessRights & AccessRights.AssignAccess) == AccessRights.AssignAccess;
                             result.AssignPrivilegeId = privileges[privlegeName];
                         }
-
-                        if (privlegeName.StartsWith("prvcreate"))
+                        else if (privlegeName.StartsWith("prvcreate"))
                         {
                             result.HasCreateAccess = (response.AccessRights & AccessRights.CreateAccess) == AccessRights.CreateAccess;
                             result.CreatePrivilegeId = privileges[privlegeName];
                         }
-
-                        if (privlegeName.StartsWith("prvdelete"))
+                        else if (privlegeName.StartsWith("prvdelete"))
                         {
                             result.HasDeleteAccess = (response.AccessRights & AccessRights.DeleteAccess) == AccessRights.DeleteAccess;
                             result.DeletePrivilegeId = privileges[privlegeName];
                         }
-
-                        if (privlegeName.StartsWith("prvread"))
+                        else if (privlegeName.StartsWith("prvread"))
                         {
                             result.HasReadAccess = (response.AccessRights & AccessRights.ReadAccess) == AccessRights.ReadAccess;
                             result.ReadPrivilegeId = privileges[privlegeName];
                         }
-
-                        if (privlegeName.StartsWith("prvshare"))
+                        else if (privlegeName.StartsWith("prvshare"))
                         {
                             result.HasShareAccess = (response.AccessRights & AccessRights.ShareAccess) == AccessRights.ShareAccess;
                             result.SharePrivilegeId = privileges[privlegeName];
                         }
-
-                        if (privlegeName.StartsWith("prvwrite"))
+                        else if (privlegeName.StartsWith("prvwrite"))
                         {
                             result.HasWriteAccess = (response.AccessRights & AccessRights.WriteAccess) == AccessRights.WriteAccess;
                             result.WritePrivilegeId = privileges[privlegeName];
