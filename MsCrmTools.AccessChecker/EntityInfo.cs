@@ -2,7 +2,7 @@
 
 namespace MsCrmTools.AccessChecker
 {
-    internal class EntityInfo
+    public class EntityInfo
     {
         public EntityInfo(EntityMetadata emd)
         {

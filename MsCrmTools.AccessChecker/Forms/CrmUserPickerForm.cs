@@ -15,7 +15,7 @@ namespace MsCrmTools.AccessChecker.Forms
         /// <summary>
         /// List of selected users
         /// </summary>
-        public Dictionary<Guid, string> SelectedUsers;
+        public User SelectedUser;
 
         /// <summary>
         /// CRM access object
@@ -60,7 +60,11 @@ namespace MsCrmTools.AccessChecker.Forms
 
             foreach (var user in users)
             {
-                var item = new ListViewItem(user.GetAttributeValue<string>("lastname")) { Tag = user.Id };
+                var item = new ListViewItem(user.GetAttributeValue<string>("lastname"));
+                item.Tag = new User { Id = user.Id, 
+                    BUId = user.GetAttributeValue<EntityReference>("businessunitid").Id, 
+                    Name = user.GetAttributeValue<string>("firstname") + " " +user.GetAttributeValue<string>("lastname")
+                } ;
                 item.SubItems.Add(user.GetAttributeValue<string>("firstname"));
                 item.SubItems.Add(user.GetAttributeValue<string>("domainname"));
                 item.SubItems.Add(user.GetAttributeValue<EntityReference>("businessunitid").Name);
@@ -74,7 +78,12 @@ namespace MsCrmTools.AccessChecker.Forms
         /// </summary>
         private void ButtonValidateClick(object sender, EventArgs e)
         {
-            DialogResult = DialogResult.OK;
+            if (SelectedUser == null)
+            {
+                MessageBox.Show("Please choose a user before proceeding", "Select User", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                DialogResult = DialogResult.None;
+            }
+            else DialogResult = DialogResult.OK;
         }
 
         /// <summary>
@@ -84,8 +93,9 @@ namespace MsCrmTools.AccessChecker.Forms
         {
             if (lvUsers.SelectedItems.Count > 0)
             {
-                SelectedUsers = new Dictionary<Guid, string>();
-                SelectedUsers.Add((Guid)lvUsers.SelectedItems[0].Tag, lvUsers.SelectedItems[0].Text);
+                SelectedUser = (User)lvUsers.SelectedItems[0].Tag;
+                //SelectedUsers = new Dictionary<Guid, string>();
+                //SelectedUsers.Add((Guid)lvUsers.SelectedItems[0].Tag, lvUsers.SelectedItems[0].Text);
             }
         }
 
@@ -104,7 +114,7 @@ namespace MsCrmTools.AccessChecker.Forms
 
         private void ListViewUsersMouseDoubleClick(object sender, MouseEventArgs e)
         {
-            if (SelectedUsers.Count > 0)
+            if (SelectedUser != null)
             {
                 ButtonValidateClick(null, null);
             }
