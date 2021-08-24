@@ -3,7 +3,6 @@ using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
-using Microsoft.Xrm.Sdk.Metadata.Query;
 using MsCrmTools.AccessChecker.Forms;
 using System;
 using System.Collections.Generic;
@@ -13,13 +12,11 @@ using System.Reflection;
 using System.Windows.Forms;
 using XrmToolBox.Extensibility;
 using XrmToolBox.Extensibility.Interfaces;
-using Label = System.Windows.Forms.Label;
 
 namespace MsCrmTools.AccessChecker
 {
     public partial class AccessChecker : PluginControlBase, IGitHubPlugin, IHelpPlugin, IPayPalPlugin
     {
-
         #region Constructor
 
         /// <summary>
@@ -35,6 +32,16 @@ namespace MsCrmTools.AccessChecker
         #endregion Constructor
 
         #region Interfaces implementation
+
+        private const string aiEndpoint = "https://dc.services.visualstudio.com/v2/track";
+
+        private const string aiKey = "8cf73e9a-d3e1-4e60-be09-87ca27d4a20f";
+
+        private AppInsights ai;
+
+        public string DonationDescription => "Donation for Access Checker";
+
+        public string EmailAccount => "tanguy92@hotmail.com";
 
         public string HelpUrl
         {
@@ -59,20 +66,13 @@ namespace MsCrmTools.AccessChecker
                 return "MscrmTools";
             }
         }
-        private AppInsights ai;
-        private const string aiEndpoint = "https://dc.services.visualstudio.com/v2/track";
-
-        private const string aiKey = "8cf73e9a-d3e1-4e60-be09-87ca27d4a20f";
-
-        public string DonationDescription => "Donation for Access Checker";
-
-        public string EmailAccount => "tanguy92@hotmail.com";
 
         public override void UpdateConnection(IOrganizationService newService, ConnectionDetail detail, string actionName, object parameter)
         {
             base.UpdateConnection(newService, detail, actionName, parameter);
             ExecuteMethod(ProcessRetrieveEntities);
         }
+
         #endregion Interfaces implementation
 
         #region Methods
@@ -183,7 +183,7 @@ namespace MsCrmTools.AccessChecker
                 AsyncArgument = null,
                 Work = (bw, e) =>
                 {
-                    RetrieveAllEntitiesRequest getTables = new RetrieveAllEntitiesRequest();
+                    RetrieveAllEntitiesRequest getTables = new RetrieveAllEntitiesRequest { EntityFilters = EntityFilters.Attributes };
                     e.Result = (RetrieveAllEntitiesResponse)Service.Execute(getTables);
                 },
                 PostWorkCallBack = e =>
@@ -209,6 +209,29 @@ namespace MsCrmTools.AccessChecker
                 },
                 ProgressChanged = e => { SetWorkingMessage(e.UserState.ToString()); }
             });
+        }
+
+        private void ResetPermissions(SplitterPanel splitPanel)
+        {
+            foreach (Panel panel in splitPanel.Controls.OfType<Panel>())
+            {
+                panel.BackColor = Color.DarkGray;
+                TextBox privLabel = (TextBox)Helper.FindByTagEndsWith(panel, "Label");
+                privLabel.BackColor = Color.DarkGray;
+                privLabel.Text = "";
+                var flow = Helper.FindByTagEndsWith(panel, "Flow") as FlowLayoutPanel;
+
+                if (flow != null)
+                {
+                    flow.Controls.Clear();
+                }
+            }
+        }
+
+        private void ResetPermissions()
+        {
+            ResetPermissions(splitAccess.Panel1);
+            ResetPermissions(splitAccess.Panel2);
         }
 
         private void RetrieveAccessRights()
@@ -307,29 +330,6 @@ namespace MsCrmTools.AccessChecker
                     }
                 }
             });
-        }
-
-        private void ResetPermissions(SplitterPanel splitPanel)
-        {
-            foreach (Panel panel in splitPanel.Controls.OfType<Panel>())
-            {
-                panel.BackColor = Color.DarkGray;
-                TextBox privLabel = (TextBox)Helper.FindByTagEndsWith(panel, "Label");
-                privLabel.BackColor = Color.DarkGray;
-                privLabel.Text = "";
-                var flow = Helper.FindByTagEndsWith(panel, "Flow") as FlowLayoutPanel;
-
-                if (flow != null)
-                {
-                    flow.Controls.Clear();
-                }
-            }
-        }
-
-        private void ResetPermissions()
-        {
-            ResetPermissions(splitAccess.Panel1);
-            ResetPermissions(splitAccess.Panel2);
         }
 
         private void TsbCloseClick(object sender, System.EventArgs e)
