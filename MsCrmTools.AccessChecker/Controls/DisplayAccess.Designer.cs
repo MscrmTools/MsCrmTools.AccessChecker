@@ -31,11 +31,9 @@ namespace MsCrmTools.AccessChecker
         {
             this.image = new System.Windows.Forms.PictureBox();
             this.linkRelated = new System.Windows.Forms.LinkLabel();
-            this.flowLabel = new System.Windows.Forms.FlowLayoutPanel();
             this.splitMain = new System.Windows.Forms.SplitContainer();
             this.lblTitle = new GrowLabel();
             ((System.ComponentModel.ISupportInitialize)(this.image)).BeginInit();
-            this.flowLabel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitMain)).BeginInit();
             this.splitMain.Panel1.SuspendLayout();
             this.splitMain.Panel2.SuspendLayout();
@@ -55,7 +53,7 @@ namespace MsCrmTools.AccessChecker
             // linkRelated
             // 
             this.linkRelated.AutoSize = true;
-            this.linkRelated.Location = new System.Drawing.Point(3, 13);
+            this.linkRelated.Location = new System.Drawing.Point(3, 19);
             this.linkRelated.Name = "linkRelated";
             this.linkRelated.Size = new System.Drawing.Size(55, 13);
             this.linkRelated.TabIndex = 2;
@@ -63,17 +61,6 @@ namespace MsCrmTools.AccessChecker
             this.linkRelated.Text = "linkLabel1";
             this.linkRelated.Visible = false;
             this.linkRelated.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkRelated_LinkClicked);
-            // 
-            // flowLabel
-            // 
-            this.flowLabel.Controls.Add(this.lblTitle);
-            this.flowLabel.Controls.Add(this.linkRelated);
-            this.flowLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.flowLabel.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
-            this.flowLabel.Location = new System.Drawing.Point(0, 0);
-            this.flowLabel.Name = "flowLabel";
-            this.flowLabel.Size = new System.Drawing.Size(121, 35);
-            this.flowLabel.TabIndex = 4;
             // 
             // splitMain
             // 
@@ -88,8 +75,9 @@ namespace MsCrmTools.AccessChecker
             // 
             // splitMain.Panel2
             // 
-            this.splitMain.Panel2.Controls.Add(this.flowLabel);
-            this.splitMain.Size = new System.Drawing.Size(150, 35);
+            this.splitMain.Panel2.Controls.Add(this.linkRelated);
+            this.splitMain.Panel2.Controls.Add(this.lblTitle);
+            this.splitMain.Size = new System.Drawing.Size(296, 36);
             this.splitMain.SplitterDistance = 25;
             this.splitMain.TabIndex = 5;
             // 
@@ -97,6 +85,7 @@ namespace MsCrmTools.AccessChecker
             // 
             this.lblTitle.AutoSize = true;
             this.lblTitle.Location = new System.Drawing.Point(3, 0);
+            this.lblTitle.Margin = new System.Windows.Forms.Padding(0);
             this.lblTitle.Name = "lblTitle";
             this.lblTitle.Size = new System.Drawing.Size(62, 13);
             this.lblTitle.TabIndex = 3;
@@ -106,17 +95,15 @@ namespace MsCrmTools.AccessChecker
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.Controls.Add(this.splitMain);
-            this.MinimumSize = new System.Drawing.Size(150, 35);
             this.Name = "DisplayAccess";
-            this.Size = new System.Drawing.Size(150, 35);
+            this.Size = new System.Drawing.Size(296, 36);
             ((System.ComponentModel.ISupportInitialize)(this.image)).EndInit();
-            this.flowLabel.ResumeLayout(false);
-            this.flowLabel.PerformLayout();
             this.splitMain.Panel1.ResumeLayout(false);
             this.splitMain.Panel1.PerformLayout();
             this.splitMain.Panel2.ResumeLayout(false);
+            this.splitMain.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitMain)).EndInit();
             this.splitMain.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -128,7 +115,6 @@ namespace MsCrmTools.AccessChecker
         private System.Windows.Forms.PictureBox image;
         private System.Windows.Forms.LinkLabel linkRelated;
         private GrowLabel lblTitle;
-        private System.Windows.Forms.FlowLayoutPanel flowLabel;
         private System.Windows.Forms.SplitContainer splitMain;
     }
 }

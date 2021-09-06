@@ -238,7 +238,7 @@
             this.btnRetrieveEntities.Name = "btnRetrieveEntities";
             this.btnRetrieveEntities.Size = new System.Drawing.Size(105, 23);
             this.btnRetrieveEntities.TabIndex = 12;
-            this.btnRetrieveEntities.Text = "Retrieve entities";
+            this.btnRetrieveEntities.Text = "Retrieve Tables";
             this.btnRetrieveEntities.UseVisualStyleBackColor = true;
             this.btnRetrieveEntities.Click += new System.EventHandler(this.BtnRetrieveEntitiesClick);
             // 
@@ -247,9 +247,9 @@
             this.lblEntityName.AutoSize = true;
             this.lblEntityName.Location = new System.Drawing.Point(3, 53);
             this.lblEntityName.Name = "lblEntityName";
-            this.lblEntityName.Size = new System.Drawing.Size(64, 13);
+            this.lblEntityName.Size = new System.Drawing.Size(37, 13);
             this.lblEntityName.TabIndex = 13;
-            this.lblEntityName.Text = "Entity Name";
+            this.lblEntityName.Text = "Table:";
             // 
             // txtObjectId
             // 
@@ -369,6 +369,7 @@
             // splitAssign
             // 
             this.splitAssign.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitAssign.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitAssign.Location = new System.Drawing.Point(0, 0);
             this.splitAssign.Name = "splitAssign";
             // 
@@ -460,6 +461,7 @@
             // splitAppend
             // 
             this.splitAppend.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitAppend.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitAppend.Location = new System.Drawing.Point(0, 0);
             this.splitAppend.Name = "splitAppend";
             // 
@@ -551,6 +553,7 @@
             // splitWrite
             // 
             this.splitWrite.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitWrite.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitWrite.Location = new System.Drawing.Point(0, 0);
             this.splitWrite.Name = "splitWrite";
             // 
@@ -642,6 +645,7 @@
             // splitCreate
             // 
             this.splitCreate.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitCreate.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitCreate.Location = new System.Drawing.Point(0, 0);
             this.splitCreate.Name = "splitCreate";
             // 
@@ -733,6 +737,7 @@
             // splitShare
             // 
             this.splitShare.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitShare.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitShare.Location = new System.Drawing.Point(0, 0);
             this.splitShare.Name = "splitShare";
             // 
@@ -824,6 +829,7 @@
             // splitAppendTo
             // 
             this.splitAppendTo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitAppendTo.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitAppendTo.Location = new System.Drawing.Point(0, 0);
             this.splitAppendTo.Name = "splitAppendTo";
             // 
@@ -915,6 +921,7 @@
             // splitDelete
             // 
             this.splitDelete.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitDelete.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitDelete.Location = new System.Drawing.Point(0, 0);
             this.splitDelete.Name = "splitDelete";
             // 
@@ -1006,6 +1013,7 @@
             // splitRead
             // 
             this.splitRead.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitRead.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitRead.Location = new System.Drawing.Point(0, 0);
             this.splitRead.Name = "splitRead";
             // 
@@ -1075,6 +1083,7 @@
             // 
             // flowRead
             // 
+            this.flowRead.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.flowRead.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowRead.Location = new System.Drawing.Point(0, 0);
             this.flowRead.Name = "flowRead";
