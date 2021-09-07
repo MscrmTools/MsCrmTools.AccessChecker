@@ -11,7 +11,7 @@
     <iconUrl>https://download-codeplex.sec.s-msft.com/Download?ProjectName=xrmtoolbox&amp;DownloadId=579949&amp;Build=20841</iconUrl>
     <description>Check a record access rights for a user</description>
     <summary>Check a record access rights for a user</summary>
-    <releaseNotes>Thanks to Carl Cookson, this tool now displays the source security record(s) that make a privilege enabled</releaseNotes>
+    <releaseNotes>Improvements and renaming entities to tables (Thanks, Carl Cookson)</releaseNotes>
     <tags>XrmToolBox Plugin AccessChecker</tags>
     <dependencies>
       <dependency id="XrmToolBox" version="1.2016.4.28" />
