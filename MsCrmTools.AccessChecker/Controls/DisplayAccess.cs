@@ -42,6 +42,7 @@ namespace MsCrmTools.AccessChecker
                     AddToolTip("The record is shared with a team that the user belongs to");
                     break;
                 case PermissionType.UserRelated:
+                    image.Image = Properties.Resources.ShareUser;
                     lblTitle.Text = "Related record shared";
                     if (permission.SharedRecordId != null)
                     {
@@ -54,6 +55,7 @@ namespace MsCrmTools.AccessChecker
                     else AddToolTip("The record has got inherited permissions, but the parent record can not be found." + Environment.NewLine + "This is usually caused by historic data not been cleaned up correctly");
                     break;
                 case PermissionType.TeamRelated:
+                    image.Image = Properties.Resources.ShareTeam;
                     lblTitle.Text = $@"Related Record shared with Team {permission.Name}" ;
                     if (permission.SharedRecordId != null)
                     {

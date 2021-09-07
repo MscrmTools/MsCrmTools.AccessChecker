@@ -183,7 +183,7 @@ namespace MsCrmTools.AccessChecker
                 AsyncArgument = null,
                 Work = (bw, e) =>
                 {
-                    RetrieveAllEntitiesRequest getTables = new RetrieveAllEntitiesRequest { EntityFilters = EntityFilters.Attributes };
+                    RetrieveAllEntitiesRequest getTables = new RetrieveAllEntitiesRequest { EntityFilters = EntityFilters.Default }; 
                     e.Result = (RetrieveAllEntitiesResponse)Service.Execute(getTables);
                 },
                 PostWorkCallBack = e =>
