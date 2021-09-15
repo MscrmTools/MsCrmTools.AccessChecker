@@ -3,6 +3,7 @@ using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
+using Microsoft.Xrm.Sdk.Metadata.Query;
 using MsCrmTools.AccessChecker.Forms;
 using System;
 using System.Collections.Generic;
@@ -183,8 +184,33 @@ namespace MsCrmTools.AccessChecker
                 AsyncArgument = null,
                 Work = (bw, e) =>
                 {
-                    RetrieveAllEntitiesRequest getTables = new RetrieveAllEntitiesRequest { EntityFilters = EntityFilters.Default }; 
-                    e.Result = (RetrieveAllEntitiesResponse)Service.Execute(getTables);
+                    EntityQueryExpression entityQueryExpression = new EntityQueryExpression
+                    {
+                        Properties = new MetadataPropertiesExpression
+                        {
+                            AllProperties = false,
+                            PropertyNames = { "DisplayName", "LogicalName", "Attributes", "ObjectTypeCode", "PrimaryIdAttribute" }
+                        },
+                        AttributeQuery = new AttributeQueryExpression
+                        {
+                            // Récupération de l'attribut spécifié
+                            Properties = new MetadataPropertiesExpression
+                            {
+                                AllProperties = false,
+                                PropertyNames = { "DisplayName", "SchemaName", "LogicalName", "EntityLogicalName", "OptionSet" }
+                            }
+                        }
+                    };
+
+                    RetrieveMetadataChangesRequest retrieveMetadataChangesRequest = new RetrieveMetadataChangesRequest
+                    {
+                        Query = entityQueryExpression,
+                        ClientVersionStamp = null
+                    };
+                    e.Result = ((RetrieveMetadataChangesResponse)Service.Execute(retrieveMetadataChangesRequest)).EntityMetadata;
+
+                    //RetrieveAllEntitiesRequest getTables = new RetrieveAllEntitiesRequest { EntityFilters = EntityFilters.Default | EntityFilters.Attributes };
+                    //e.Result = (RetrieveAllEntitiesResponse)Service.Execute(getTables);
                 },
                 PostWorkCallBack = e =>
                 {
@@ -194,9 +220,9 @@ namespace MsCrmTools.AccessChecker
                     }
                     else
                     {
-                        var emds = (RetrieveAllEntitiesResponse)e.Result;
+                        var emds = (EntityMetadataCollection)e.Result;
 
-                        foreach (var emd in emds.EntityMetadata)
+                        foreach (var emd in emds)
                         {
                             cBoxEntities.Items.Add(new EntityInfo(emd));
                         }

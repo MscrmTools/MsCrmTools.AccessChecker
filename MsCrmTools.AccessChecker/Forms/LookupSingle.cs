@@ -1,6 +1,5 @@
 ﻿using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
-using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
 using Microsoft.Xrm.Sdk.Query;
 using System;
@@ -31,7 +30,7 @@ namespace MsCrmTools.AccessChecker.Forms
         }
 
         public Guid SelectedRecordId { get; private set; }
-        
+
         private void BtnCancelClick(object sender, EventArgs e)
         {
             SelectedRecordId = Guid.Empty;
@@ -46,153 +45,6 @@ namespace MsCrmTools.AccessChecker.Forms
             Close();
         }
 
-        private void ProcessFilter(XmlNode node, string searchTerm)
-        {
-
-            foreach (XmlNode condition in node.SelectNodes("condition"))
-            {
-                if (!condition.Attributes["value"].Value.StartsWith("{"))
-                {
-                    continue;
-                }
-                var attr = metadata.Attributes.First(a => a.LogicalName == condition.Attributes["attribute"].Value);
-
-                #region Manage each attribute type
-
-                switch (attr.AttributeType.Value)
-                {
-                    case AttributeTypeCode.Memo:
-                    case AttributeTypeCode.String:
-                    {
-                        condition.Attributes["value"].Value = searchTerm.Replace("*", "%");
-                    }
-                        break;
-                    case AttributeTypeCode.Boolean:
-                    {
-                        if (searchTerm != "0" && searchTerm != "1")
-                        {
-                                node.RemoveChild(condition);
-                                continue;
-                            }
-
-                        condition.Attributes["value"].Value = (searchTerm == "1").ToString();
-                    }
-                        break;
-                    case AttributeTypeCode.Customer:
-                    case AttributeTypeCode.Lookup:
-                    case AttributeTypeCode.Owner:
-                    {
-                        if (
-                            metadata.Attributes.FirstOrDefault(
-                                a => a.LogicalName == condition.Attributes["attribute"].Value + "name") == null)
-                        {
-                            node.RemoveChild(condition);
-
-                            continue;
-                        }
-                        
-
-                        condition.Attributes["attribute"].Value += "name";
-                        condition.Attributes["value"].Value = searchTerm.Replace("*", "%");
-                    }
-                        break;
-                    case AttributeTypeCode.DateTime:
-                    {
-                        DateTime dt;
-                        if (!DateTime.TryParse(searchTerm, out dt))
-                        {
-                            condition.Attributes["value"].Value = new DateTime(1754,1,1).ToString("yyyy-MM-dd");
-                        }
-                        else
-                        {
-                            condition.Attributes["value"].Value = dt.ToString("yyyy-MM-dd");
-                        }
-                    }
-                        break;
-                        case AttributeTypeCode.Decimal:
-                        case AttributeTypeCode.Double:
-                        case AttributeTypeCode.Money:
-                    {
-                            decimal d;
-                            if (!decimal.TryParse(searchTerm, out d))
-                            {
-                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
-                            }
-                            else
-                            {
-                                condition.Attributes["value"].Value = d.ToString(CultureInfo.InvariantCulture);
-                            }
-                        }
-                        break;
-                        case AttributeTypeCode.Integer:
-                        {
-                            int d;
-                            if (!int.TryParse(searchTerm, out d))
-                            {
-                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
-                            }
-                            else
-                            {
-                                condition.Attributes["value"].Value = d.ToString(CultureInfo.InvariantCulture);
-                            }
-                        }
-                        break;
-                        case AttributeTypeCode.Picklist:
-                    {
-                        var opt = ((PicklistAttributeMetadata) attr).OptionSet.Options.FirstOrDefault(
-                            o => o.Label.UserLocalizedLabel.Label == searchTerm);
-
-                        if (opt == null)
-                        {
-                            condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
-                            }
-                        else
-                        {
-                            condition.Attributes["value"].Value = opt.Value.Value.ToString(CultureInfo.InvariantCulture);
-                            }
-                    }
-                        break;
-                    case AttributeTypeCode.State:
-                        {
-                            var opt = ((StateAttributeMetadata)attr).OptionSet.Options.FirstOrDefault(
-                                o => o.Label.UserLocalizedLabel.Label == searchTerm);
-
-                            if (opt == null)
-                            {
-                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
-                            }
-                            else
-                            {
-                                condition.Attributes["value"].Value = opt.Value.Value.ToString(CultureInfo.InvariantCulture);
-                            }
-                        }
-                        break;
-                    case AttributeTypeCode.Status:
-                        {
-                            var opt = ((StatusAttributeMetadata)attr).OptionSet.Options.FirstOrDefault(
-                                o => o.Label.UserLocalizedLabel.Label == searchTerm);
-
-                            if (opt == null)
-                            {
-                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
-                            }
-                            else
-                            {
-                                condition.Attributes["value"].Value = opt.Value.Value.ToString(CultureInfo.InvariantCulture);
-                            }
-                        }
-                        break;
-                }
-
-                #endregion
-            }
-
-            foreach (XmlNode filter in node.SelectNodes("filter"))
-            {
-                ProcessFilter(filter, searchTerm);
-            }
-        }
-
         private void BtnSearchClick(object sender, EventArgs e)
         {
             lvResults.Items.Clear();
@@ -203,10 +55,9 @@ namespace MsCrmTools.AccessChecker.Forms
             {
                 if (txtSearch.Text.Length == 0) txtSearch.Text = "*";
 
-                var view = ((ViewInfo) cbbViews.SelectedItem).Entity;
+                var view = ((ViewInfo)cbbViews.SelectedItem).Entity;
                 var layout = new XmlDocument();
                 layout.LoadXml(view["layoutxml"].ToString());
-
 
                 string fetchXml = view["fetchxml"].ToString();
                 var fetchDoc = new XmlDocument();
@@ -219,7 +70,7 @@ namespace MsCrmTools.AccessChecker.Forms
                 newFetchXml = fetchDoc.OuterXml;
 
                 resultXml =
-                    ((ExecuteFetchResponse) service.Execute(new ExecuteFetchRequest {FetchXml = newFetchXml }))
+                    ((ExecuteFetchResponse)service.Execute(new ExecuteFetchRequest { FetchXml = newFetchXml }))
                         .FetchXmlResult;
                 var resultsDoc = new XmlDocument();
                 resultsDoc.LoadXml(resultXml);
@@ -284,7 +135,6 @@ namespace MsCrmTools.AccessChecker.Forms
                         "There is more than 250 records that match your search! Please refine your search",
                         "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
-
             }
             catch (Exception error)
             {
@@ -328,7 +178,7 @@ namespace MsCrmTools.AccessChecker.Forms
             qe.Criteria.AddCondition("querytype", ConditionOperator.Equal, 4);
             var records = service.RetrieveMultiple(qe);
 
-            if(records.Entities.Count == 0)
+            if (records.Entities.Count == 0)
             {
                 MessageBox.Show(this, "Cannot load views since this entity does not have Quick Find view defined", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
@@ -363,6 +213,164 @@ namespace MsCrmTools.AccessChecker.Forms
         private void LvResultsDoubleClick(object sender, EventArgs e)
         {
             BtnOkClick(null, null);
+        }
+
+        private void ProcessFilter(XmlNode node, string searchTerm)
+        {
+            foreach (XmlNode condition in node.SelectNodes("condition"))
+            {
+                if (!condition.Attributes["value"].Value.StartsWith("{"))
+                {
+                    continue;
+                }
+
+                var conditionAttr = condition.Attributes["attribute"]?.Value;
+                if (conditionAttr == null) continue;
+
+                var attr = metadata.Attributes.FirstOrDefault(a => a.LogicalName == conditionAttr);
+                if (attr == null) continue;
+
+                #region Manage each attribute type
+
+                switch (attr.AttributeType.Value)
+                {
+                    case AttributeTypeCode.Memo:
+                    case AttributeTypeCode.String:
+                        {
+                            condition.Attributes["value"].Value = searchTerm.Replace("*", "%");
+                        }
+                        break;
+
+                    case AttributeTypeCode.Boolean:
+                        {
+                            if (searchTerm != "0" && searchTerm != "1")
+                            {
+                                node.RemoveChild(condition);
+                                continue;
+                            }
+
+                            condition.Attributes["value"].Value = (searchTerm == "1").ToString();
+                        }
+                        break;
+
+                    case AttributeTypeCode.Customer:
+                    case AttributeTypeCode.Lookup:
+                    case AttributeTypeCode.Owner:
+                        {
+                            if (
+                                metadata.Attributes.FirstOrDefault(
+                                    a => a.LogicalName == condition.Attributes["attribute"].Value + "name") == null)
+                            {
+                                node.RemoveChild(condition);
+
+                                continue;
+                            }
+
+                            condition.Attributes["attribute"].Value += "name";
+                            condition.Attributes["value"].Value = searchTerm.Replace("*", "%");
+                        }
+                        break;
+
+                    case AttributeTypeCode.DateTime:
+                        {
+                            DateTime dt;
+                            if (!DateTime.TryParse(searchTerm, out dt))
+                            {
+                                condition.Attributes["value"].Value = new DateTime(1754, 1, 1).ToString("yyyy-MM-dd");
+                            }
+                            else
+                            {
+                                condition.Attributes["value"].Value = dt.ToString("yyyy-MM-dd");
+                            }
+                        }
+                        break;
+
+                    case AttributeTypeCode.Decimal:
+                    case AttributeTypeCode.Double:
+                    case AttributeTypeCode.Money:
+                        {
+                            decimal d;
+                            if (!decimal.TryParse(searchTerm, out d))
+                            {
+                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                condition.Attributes["value"].Value = d.ToString(CultureInfo.InvariantCulture);
+                            }
+                        }
+                        break;
+
+                    case AttributeTypeCode.Integer:
+                        {
+                            int d;
+                            if (!int.TryParse(searchTerm, out d))
+                            {
+                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                condition.Attributes["value"].Value = d.ToString(CultureInfo.InvariantCulture);
+                            }
+                        }
+                        break;
+
+                    case AttributeTypeCode.Picklist:
+                        {
+                            var opt = ((PicklistAttributeMetadata)attr).OptionSet.Options.FirstOrDefault(
+                                o => o.Label?.UserLocalizedLabel?.Label == searchTerm);
+
+                            if (opt == null)
+                            {
+                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                condition.Attributes["value"].Value = opt.Value.Value.ToString(CultureInfo.InvariantCulture);
+                            }
+                        }
+                        break;
+
+                    case AttributeTypeCode.State:
+                        {
+                            var opt = ((StateAttributeMetadata)attr).OptionSet.Options.FirstOrDefault(
+                                o => o.Label?.UserLocalizedLabel?.Label == searchTerm);
+
+                            if (opt == null)
+                            {
+                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                condition.Attributes["value"].Value = opt.Value.Value.ToString(CultureInfo.InvariantCulture);
+                            }
+                        }
+                        break;
+
+                    case AttributeTypeCode.Status:
+                        {
+                            var opt = ((StatusAttributeMetadata)attr).OptionSet.Options.FirstOrDefault(
+                                o => o.Label?.UserLocalizedLabel?.Label == searchTerm);
+
+                            if (opt == null)
+                            {
+                                condition.Attributes["value"].Value = int.MinValue.ToString(CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                condition.Attributes["value"].Value = opt.Value.Value.ToString(CultureInfo.InvariantCulture);
+                            }
+                        }
+                        break;
+                }
+
+                #endregion Manage each attribute type
+            }
+
+            foreach (XmlNode filter in node.SelectNodes("filter"))
+            {
+                ProcessFilter(filter, searchTerm);
+            }
         }
 
         private void TxtSearchKeyPress(object sender, KeyPressEventArgs e)
