@@ -30,10 +30,12 @@ namespace MsCrmTools.AccessChecker.Forms
         }
 
         public Guid SelectedRecordId { get; private set; }
+        public string SelectedRecordName { get; private set; }
 
         private void BtnCancelClick(object sender, EventArgs e)
         {
             SelectedRecordId = Guid.Empty;
+            SelectedRecordName = "";
             DialogResult = DialogResult.Cancel;
             Close();
         }
@@ -41,6 +43,7 @@ namespace MsCrmTools.AccessChecker.Forms
         private void BtnOkClick(object sender, EventArgs e)
         {
             SelectedRecordId = (Guid)lvResults.SelectedItems[0].Tag;
+            SelectedRecordName = lvResults.SelectedItems[0].Text;
             DialogResult = DialogResult.OK;
             Close();
         }

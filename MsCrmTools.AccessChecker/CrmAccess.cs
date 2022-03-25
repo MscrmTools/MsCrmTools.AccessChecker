@@ -19,11 +19,12 @@ namespace MsCrmTools.AccessChecker
     {
         #region Variables
 
+        private readonly ConnectionDetail connectionDetail;
+
         /// <summary>
         /// CRM proxy data service
         /// </summary>
         private readonly IOrganizationService service;
-        private readonly ConnectionDetail connectionDetail;
 
         #endregion Variables
 
@@ -43,6 +44,79 @@ namespace MsCrmTools.AccessChecker
 
         #region Methods
 
+        public void GetRoleDetail(List<Privilege> privList, User user, Guid recordId, EntityInfo entity)
+        {
+            ///Check Team access
+            ///
+            if (user.Teams == null)
+            {
+                user.Teams = GetTeams(user.Id);
+            }
+
+            foreach (var team in user.Teams)
+            {
+                var csc = connectionDetail.GetCrmServiceClient();
+                Dictionary<string, List<string>> ODataHeaders = new Dictionary<string, List<string>>() {
+                                                                    { "Accept", new List<string>() { "application/json" } },
+                                                                    {"OData-MaxVersion", new List<string>(){"4.0"}},
+                                                                    {"OData-Version", new List<string>(){"4.0"}}
+                                                                    };
+                if (csc.IsReady)
+                {
+                    string queryString = $@"teams({team.Id})/Microsoft.Dynamics.CRM.RetrievePrincipalAccessInfo(ObjectId={recordId},EntityName='{entity.LogicalName}')";
+                    HttpResponseMessage respMsg = csc.ExecuteCrmWebRequest(HttpMethod.Get, queryString, string.Empty, ODataHeaders, "application/json");
+
+                    if (respMsg.IsSuccessStatusCode)
+                    {
+                        PopulateRights(respMsg.Content.ReadAsStringAsync().Result, privList, team.Name, AccessCheck.Team);
+                    }
+                }
+            }
+            /// Check role Access
+            string privName = string.Join("", privList.Where(prv => prv.HasAccess).Select(prv => "<value>" + prv.PrivilegeType + entity.LogicalName + "</value>"));
+            var fetchXml = $@"<fetch>
+  <entity name='privilege' >
+    <attribute name='accessright' />
+    <attribute name='name' />
+    <filter>
+      <condition attribute='name' operator='in' >{privName}
+      </condition>
+    </filter>
+    <link-entity name='roleprivileges' from='privilegeid' to='privilegeid' >
+      <attribute name='privilegedepthmask' alias='depth' />
+      <link-entity name='role' from='parentrootroleid' to='roleid' >
+        <attribute name='name' alias='roleName'/>
+        <attribute name='businessunitid' />
+        <link-entity name='systemuserroles' from='roleid' to='roleid' >
+          <filter>
+            <condition attribute='systemuserid' operator='eq' value='{user.Id}' />
+          </filter>
+        </link-entity>
+      </link-entity>
+    </link-entity>
+  </entity>
+</fetch>";
+            Guid ownerId = service.Retrieve(entity.LogicalName, recordId, new ColumnSet("ownerid")).GetAttributeValue<EntityReference>("ownerid").Id;
+            var request = new FetchExpression(fetchXml);
+
+            var response = service.RetrieveMultiple(request);
+
+            foreach (var priv in response.Entities)
+            {
+                privName = priv.GetAttributeValue<string>("name");
+                Privilege privilege = privList.FirstOrDefault(prv => (prv.PrivilegeType + entity.LogicalName).ToLower() == privName.ToLower());
+                if (privilege == null) continue;
+
+                int depth = (int)priv.GetAttributeValue<AliasedValue>("depth").Value;
+                if (depth == 1 && ownerId != user.Id)
+                { }
+                else privilege.Permissions.Add(new Permission { PermissionType = PermissionType.UserRole, Name = priv.GetAttributeValue<AliasedValue>("roleName").Value.ToString() });
+
+                //     if (priv.GetAttributeValue<int>("privilegedepthmask") == 1) privilege.Permissions
+            }
+            // throw new NotImplementedException();
+        }
+
         /// <summary>
         /// Obtains all users corresponding to the search filter
         /// </summary>
@@ -50,7 +124,6 @@ namespace MsCrmTools.AccessChecker
         /// <returns>List of users matching the search filter</returns>
         public List<Entity> GetUsers(string value)
         {
-            
             var users = new List<Entity>();
 
             var ceStatus = new ConditionExpression("isdisabled", ConditionOperator.Equal, false);
@@ -157,11 +230,38 @@ namespace MsCrmTools.AccessChecker
             var privList = Helper.NewPrivList();
             foreach (SecurityPrivilegeMetadata spmd in response.EntityMetadata.Privileges)
             {
-                privList.First(priv => (priv.PrivilegeType + entityName).ToLower() == spmd.Name.ToLower()).PrivilegeId = spmd.PrivilegeId;
+                var privilege = privList.FirstOrDefault(priv => (priv.PrivilegeType + entityName).ToLower() == spmd.Name.ToLower());
+                if (privilege != null) privilege.PrivilegeId = spmd.PrivilegeId;
             }
             return privList;
         }
 
+        /// <summary>
+        /// Retrieve the access rights for the specified user against the specified object
+        /// </summary>
+        /// <param name="userId">Unique identifier of the user</param>
+        /// <param name="objectId">Unique identifier of the object</param>
+        /// <param name="entityName">Logical name of the object entity</param>
+        /// <returns>List of access rigths</returns>
+        public RetrievePrincipalAccessResponse RetrieveRights(Guid userId, Guid objectId, string entityName)
+        {
+            try
+            {
+                // Requête d'accès
+                var request = new RetrievePrincipalAccessRequest();
+                //var request = new RetrieveSharedPrincipalsAndAccessRequest();
+                request.Principal = new EntityReference("systemuser", userId);
+                // request.Principal = new EntityReference("team", new Guid("1e9be892-4ae6-eb11-bacb-0022489ba30f"));
+
+                request.Target = new EntityReference(entityName, objectId);
+                //var response = (RetrieveSharedPrincipalsAndAccessResponse)service.Execute(request);
+                return (RetrievePrincipalAccessResponse)service.Execute(request);
+            }
+            catch (Exception error)
+            {
+                throw new Exception("Error while checking rigths: " + error.Message);
+            }
+        }
 
         public List<Privilege> RetrieveRightsAPI(Guid userId, Guid objectId, string entityName)
         {
@@ -174,7 +274,7 @@ namespace MsCrmTools.AccessChecker
                                                                     };
             if (csc.IsReady)
             {
-                 string queryString = $@"systemusers({userId})/Microsoft.Dynamics.CRM.RetrievePrincipalAccessInfo(ObjectId={objectId},EntityName='{entityName}')";
+                string queryString = $@"systemusers({userId})/Microsoft.Dynamics.CRM.RetrievePrincipalAccessInfo(ObjectId={objectId},EntityName='{entityName}')";
                 HttpResponseMessage response = csc.ExecuteCrmWebRequest(HttpMethod.Get, queryString, string.Empty, ODataHeaders, "application/json");
 
                 if (response.IsSuccessStatusCode)
@@ -188,35 +288,12 @@ namespace MsCrmTools.AccessChecker
                 {
                     Console.WriteLine(response.ReasonPhrase);
                 }
-
             }
             else
             {
                 Console.WriteLine(csc.LastCrmError);
             }
             return privList;
-        }
-
-        private void PopulateRights(string result, List<Privilege> privList, string PermissionName, AccessCheck acCheck = AccessCheck.Default)
-        {
-            // var resp = response.Content.ReadAsStringAsync().Result;
-            var respObj = JObject.Parse(result);
-            respObj = JObject.Parse(respObj.SelectToken("$.AccessInfo").ToString());
-
-            string RoleAccess = respObj.SelectToken("$.RoleAccessRights").ToString();
-            string PoaAccess = respObj.SelectToken("$.PoaAccessRights").ToString();
-            string HsmAcess = respObj.SelectToken("$.HsmAccessRights").ToString();
-            string Access = respObj.SelectToken("$.GrantedAccessRights").ToString();
-            if (Access == "None") return;
-            List<string> accessList = Access.Split(new string[] { ", " }, StringSplitOptions.None).ToList();
-            foreach (var acc in accessList)
-            {
-                var priv = privList.First(prv => prv.Label == acc);
-                priv.HasAccess = true;
-                if (RoleAccess.Contains(acc)) priv.Permissions.Add(new Permission { PermissionType = acCheck == AccessCheck.Default ? PermissionType.Role : PermissionType.TeamRole, Name = PermissionName });
-                if (PoaAccess.Contains(acc)) priv.Permissions.Add(new Permission { PermissionType = PermissionType.Shared, Name = PermissionName });
-                if (HsmAcess.Contains(acc)) priv.Permissions.Add(new Permission { PermissionType = PermissionType.Heirarchy, Name = PermissionName });
-            }
         }
 
         internal void GetShareDetail(List<Privilege> privList, User user, Guid recordId, EntityInfo entity)
@@ -269,10 +346,9 @@ namespace MsCrmTools.AccessChecker
                 if (teamAcc.GetAttributeValue<int>("accessrightsmask") > 0)
                     privilege.Permissions.Add(new Permission { AccessRights = teamAcc[""] })
                 */
-                if (permission.PermissionType == PermissionType.TeamRelated) GetRelatedRecord(permission, recordId, (Guid) teamAcc.GetAttributeValue<AliasedValue>("teamId").Value, entity.LogicalName);
+                if (permission.PermissionType == PermissionType.TeamRelated) GetRelatedRecord(permission, recordId, (Guid)teamAcc.GetAttributeValue<AliasedValue>("teamId").Value, entity.LogicalName);
 
                 privList.Where(pv => (pv.AccessRight & permission.AccessRights) == pv.AccessRight).ForEach(pv => pv.Permissions.Add(permission));
-
             }
 
             fetchXml = $@"
@@ -301,147 +377,8 @@ namespace MsCrmTools.AccessChecker
                 permission.Name = "UserShared";
                 if (permission.PermissionType == PermissionType.UserRelated) GetRelatedRecord(permission, recordId, user.Id, entity.LogicalName);
                 privList.Where(pv => (pv.AccessRight & permission.AccessRights) == pv.AccessRight).ForEach(pv => pv.Permissions.Add(permission));
-
             }
             //check roles
-        }
-
-        /// <summary>
-        /// Retrieve the access rights for the specified user against the specified object
-        /// </summary>
-        /// <param name="userId">Unique identifier of the user</param>
-        /// <param name="objectId">Unique identifier of the object</param>
-        /// <param name="entityName">Logical name of the object entity</param>
-        /// <returns>List of access rigths</returns>
-        public RetrievePrincipalAccessResponse RetrieveRights(Guid userId, Guid objectId, string entityName)
-        {
-            try
-            {
-                // Requête d'accès
-                var request = new RetrievePrincipalAccessRequest();
-                //var request = new RetrieveSharedPrincipalsAndAccessRequest();
-                request.Principal = new EntityReference("systemuser", userId);
-                // request.Principal = new EntityReference("team", new Guid("1e9be892-4ae6-eb11-bacb-0022489ba30f"));
-
-                request.Target = new EntityReference(entityName, objectId);
-                //var response = (RetrieveSharedPrincipalsAndAccessResponse)service.Execute(request);
-                return (RetrievePrincipalAccessResponse)service.Execute(request);
-            }
-            catch (Exception error)
-            {
-                throw new Exception("Error while checking rigths: " + error.Message);
-            }
-        }
-
-        public void GetRoleDetail(List<Privilege> privList, User user, Guid recordId, EntityInfo entity)
-        {
-
-            ///Check Team access
-            ///
-            if (user.Teams == null)
-            {
-                user.Teams = GetTeams(user.Id);
-            }
-
-            foreach (var team in user.Teams)
-            {
-                var csc = connectionDetail.GetCrmServiceClient();
-                Dictionary<string, List<string>> ODataHeaders = new Dictionary<string, List<string>>() {
-                                                                    { "Accept", new List<string>() { "application/json" } },
-                                                                    {"OData-MaxVersion", new List<string>(){"4.0"}},
-                                                                    {"OData-Version", new List<string>(){"4.0"}}
-                                                                    };
-                if (csc.IsReady)
-                {
-                    string queryString = $@"teams({team.Id})/Microsoft.Dynamics.CRM.RetrievePrincipalAccessInfo(ObjectId={recordId},EntityName='{entity.LogicalName}')";
-                    HttpResponseMessage respMsg = csc.ExecuteCrmWebRequest(HttpMethod.Get, queryString, string.Empty, ODataHeaders, "application/json");
-
-                    if (respMsg.IsSuccessStatusCode)
-                    {
-                        PopulateRights(respMsg.Content.ReadAsStringAsync().Result, privList, team.Name, AccessCheck.Team);
-                    }
-                }
-            }
-            /// Check role Access
-            string privName = string.Join("", privList.Where(prv => prv.HasAccess).Select(prv => "<value>" + prv.PrivilegeType + entity.LogicalName + "</value>"));
-            var fetchXml = $@"<fetch>
-  <entity name='privilege' >
-    <attribute name='accessright' />
-    <attribute name='name' />
-    <filter>
-      <condition attribute='name' operator='in' >{privName}
-      </condition>
-    </filter>
-    <link-entity name='roleprivileges' from='privilegeid' to='privilegeid' >
-      <attribute name='privilegedepthmask' alias='depth' />
-      <link-entity name='role' from='parentrootroleid' to='roleid' >
-        <attribute name='name' alias='roleName'/>
-        <attribute name='businessunitid' />
-        <link-entity name='systemuserroles' from='roleid' to='roleid' >
-          <filter>
-            <condition attribute='systemuserid' operator='eq' value='{user.Id}' />
-          </filter>
-        </link-entity>
-      </link-entity>
-    </link-entity>
-  </entity>
-</fetch>";
-            Guid ownerId = service.Retrieve(entity.LogicalName, recordId, new ColumnSet("ownerid")).GetAttributeValue<EntityReference>("ownerid").Id;
-            var request = new FetchExpression(fetchXml);
-
-            var response = service.RetrieveMultiple(request);
-
-            foreach (var priv in response.Entities)
-            {
-                privName = priv.GetAttributeValue<string>("name");
-                Privilege privilege = privList.First(prv => (prv.PrivilegeType + entity.LogicalName).ToLower() == privName.ToLower());
-                int depth = (int)priv.GetAttributeValue<AliasedValue>("depth").Value;
-                if (depth == 1 && ownerId != user.Id)
-                { }
-                   else privilege.Permissions.Add(new Permission { PermissionType = PermissionType.UserRole, Name = priv.GetAttributeValue<AliasedValue>("roleName").Value.ToString() });
-
-
-
-                //     if (priv.GetAttributeValue<int>("privilegedepthmask") == 1) privilege.Permissions
-            }
-            // throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Retrieve teams for user
-        /// </summary>
-        /// <param name="userId"></param>
-        /// <returns>List of team objects</returns>
-        private List<Team> GetTeams(Guid userId)
-        {
-            string fetchXml = $@"<fetch>
-  <entity name='teammembership' >
-    <attribute name='teamid' />
-    <filter>
-      <condition attribute='systemuserid' operator='eq' value='{userId}' />
-    </filter>
-    <link-entity name='team' from='teamid' to='teamid' >
-      <attribute name='name' alias='TeamName' />
-      <attribute name='businessunitidname' alias='BUName' />
-      <attribute name='businessunitid' alias='BUId' />
-    </link-entity>
-  </entity>
-</fetch>";
-
-            List<Team> teams = new List<Team>();
-            var request = new FetchExpression(fetchXml);
-
-            var response = service.RetrieveMultiple(request);
-
-            foreach (var priv in response.Entities)
-            {
-                Team team = new Team();
-                team.Id = priv.GetAttributeValue<Guid>("teamid");
-                team.Name = priv.GetAttributeValue<AliasedValue>("TeamName").Value.ToString();
-                teams.Add(team);
-            }
-
-            return teams;
         }
 
         private void GetRelatedRecord(Permission permission, Guid recordId, Guid principalId, string entityName)
@@ -488,6 +425,67 @@ namespace MsCrmTools.AccessChecker
                         }
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Retrieve teams for user
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <returns>List of team objects</returns>
+        private List<Team> GetTeams(Guid userId)
+        {
+            string fetchXml = $@"<fetch>
+  <entity name='teammembership' >
+    <attribute name='teamid' />
+    <filter>
+      <condition attribute='systemuserid' operator='eq' value='{userId}' />
+    </filter>
+    <link-entity name='team' from='teamid' to='teamid' >
+      <attribute name='name' alias='TeamName' />
+      <attribute name='businessunitidname' alias='BUName' />
+      <attribute name='businessunitid' alias='BUId' />
+    </link-entity>
+  </entity>
+</fetch>";
+
+            List<Team> teams = new List<Team>();
+            var request = new FetchExpression(fetchXml);
+
+            var response = service.RetrieveMultiple(request);
+
+            foreach (var priv in response.Entities)
+            {
+                Team team = new Team();
+                team.Id = priv.GetAttributeValue<Guid>("teamid");
+                team.Name = priv.GetAttributeValue<AliasedValue>("TeamName").Value.ToString();
+                teams.Add(team);
+            }
+
+            return teams;
+        }
+
+        private void PopulateRights(string result, List<Privilege> privList, string PermissionName, AccessCheck acCheck = AccessCheck.Default)
+        {
+            // var resp = response.Content.ReadAsStringAsync().Result;
+            var respObj = JObject.Parse(result);
+            respObj = JObject.Parse(respObj.SelectToken("$.AccessInfo").ToString());
+
+            string RoleAccess = respObj.SelectToken("$.RoleAccessRights").ToString();
+            string PoaAccess = respObj.SelectToken("$.PoaAccessRights").ToString();
+            string HsmAcess = respObj.SelectToken("$.HsmAccessRights").ToString();
+            string Access = respObj.SelectToken("$.GrantedAccessRights").ToString();
+            if (Access == "None") return;
+            List<string> accessList = Access.Split(new string[] { ", " }, StringSplitOptions.None).ToList();
+            foreach (var acc in accessList)
+            {
+                var priv = privList.FirstOrDefault(prv => prv.Label == acc);
+                if (priv == null) continue;
+
+                priv.HasAccess = true;
+                if (RoleAccess.Contains(acc)) priv.Permissions.Add(new Permission { PermissionType = acCheck == AccessCheck.Default ? PermissionType.Role : PermissionType.TeamRole, Name = PermissionName });
+                if (PoaAccess.Contains(acc)) priv.Permissions.Add(new Permission { PermissionType = PermissionType.Shared, Name = PermissionName });
+                if (HsmAcess.Contains(acc)) priv.Permissions.Add(new Permission { PermissionType = PermissionType.Heirarchy, Name = PermissionName });
             }
         }
 

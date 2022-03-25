@@ -128,6 +128,7 @@ namespace MsCrmTools.AccessChecker
             if (lp.ShowDialog() == DialogResult.OK)
             {
                 txtObjectId.Text = lp.SelectedRecordId.ToString("B");
+                textBox_PrimaryAttribute.Text = lp.SelectedRecordName;
             }
         }
 
@@ -189,7 +190,7 @@ namespace MsCrmTools.AccessChecker
                         Properties = new MetadataPropertiesExpression
                         {
                             AllProperties = false,
-                            PropertyNames = { "DisplayName", "LogicalName", "Attributes", "ObjectTypeCode", "PrimaryIdAttribute" }
+                            PropertyNames = { "DisplayName", "LogicalName", "Attributes", "ObjectTypeCode", "PrimaryIdAttribute", "PrimaryNameAttribute" }
                         },
                         AttributeQuery = new AttributeQueryExpression
                         {
@@ -208,9 +209,6 @@ namespace MsCrmTools.AccessChecker
                         ClientVersionStamp = null
                     };
                     e.Result = ((RetrieveMetadataChangesResponse)Service.Execute(retrieveMetadataChangesRequest)).EntityMetadata;
-
-                    //RetrieveAllEntitiesRequest getTables = new RetrieveAllEntitiesRequest { EntityFilters = EntityFilters.Default | EntityFilters.Attributes };
-                    //e.Result = (RetrieveAllEntitiesResponse)Service.Execute(getTables);
                 },
                 PostWorkCallBack = e =>
                 {
@@ -309,17 +307,78 @@ namespace MsCrmTools.AccessChecker
                     var entityName = entityInfo.LogicalName;
                     var primaryAttribute = entityInfo.PrimaryAttribute;
                     var result = new CheckAccessResult();
-                    RetrievePrincipalAccessResponse response = crmAccess.RetrieveRights(
-                        user.Id,
-                        recordId,
-                        entityName);
-                    List<Privilege> privList = crmAccess.RetrieveRightsAPI(user.Id, recordId, entityName);
 
-                    if (privList.Any(priv => priv.Permissions.Any(per => per.PermissionType == PermissionType.Role))) crmAccess.GetRoleDetail(privList, user, recordId, entityInfo);
+                    if (ConnectionDetail.NewAuthType != Microsoft.Xrm.Tooling.Connector.AuthenticationType.OAuth
+                    && ConnectionDetail.NewAuthType != Microsoft.Xrm.Tooling.Connector.AuthenticationType.Certificate)
+                    {
+                        RetrievePrincipalAccessResponse response = crmAccess.RetrieveRights(
+                       user.Id,
+                       recordId,
+                       entityName);
 
-                    if (privList.Any(priv => priv.Permissions.Any(per => per.PermissionType == PermissionType.Shared))) crmAccess.GetShareDetail(privList, user, recordId, entityInfo);
+                        Dictionary<string, Guid> privileges = crmAccess.RetrievePrivileges(entityName);
 
-                    e.Result = privList;
+                        // Get primary attribute value for the current record
+                        Entity de = crmAccess.RetrieveDynamicWithPrimaryAttr(recordId, entityName, primaryAttribute);
+                        result.RecordName = de.GetAttributeValue<string>(primaryAttribute);
+
+                        // Check Privileges
+                        foreach (string privlegeName in privileges.Keys)
+                        {
+                            if (privlegeName.StartsWith("prvappendto"))
+                            {
+                                result.HasAppendToAccess = (response.AccessRights & AccessRights.AppendToAccess) == AccessRights.AppendToAccess;
+                                result.AppendToPrivilegeId = privileges[privlegeName];
+                            }
+                            else if (privlegeName.StartsWith("prvappend"))
+                            {
+                                result.HasAppendAccess = (response.AccessRights & AccessRights.AppendAccess) == AccessRights.AppendAccess;
+                                result.AppendPrivilegeId = privileges[privlegeName];
+                            }
+                            else if (privlegeName.StartsWith("prvassign"))
+                            {
+                                result.HasAssignAccess = (response.AccessRights & AccessRights.AssignAccess) == AccessRights.AssignAccess;
+                                result.AssignPrivilegeId = privileges[privlegeName];
+                            }
+                            else if (privlegeName.StartsWith("prvcreate"))
+                            {
+                                result.HasCreateAccess = (response.AccessRights & AccessRights.CreateAccess) == AccessRights.CreateAccess;
+                                result.CreatePrivilegeId = privileges[privlegeName];
+                            }
+                            else if (privlegeName.StartsWith("prvdelete"))
+                            {
+                                result.HasDeleteAccess = (response.AccessRights & AccessRights.DeleteAccess) == AccessRights.DeleteAccess;
+                                result.DeletePrivilegeId = privileges[privlegeName];
+                            }
+                            else if (privlegeName.StartsWith("prvread"))
+                            {
+                                result.HasReadAccess = (response.AccessRights & AccessRights.ReadAccess) == AccessRights.ReadAccess;
+                                result.ReadPrivilegeId = privileges[privlegeName];
+                            }
+                            else if (privlegeName.StartsWith("prvshare"))
+                            {
+                                result.HasShareAccess = (response.AccessRights & AccessRights.ShareAccess) == AccessRights.ShareAccess;
+                                result.SharePrivilegeId = privileges[privlegeName];
+                            }
+                            else if (privlegeName.StartsWith("prvwrite"))
+                            {
+                                result.HasWriteAccess = (response.AccessRights & AccessRights.WriteAccess) == AccessRights.WriteAccess;
+                                result.WritePrivilegeId = privileges[privlegeName];
+                            }
+
+                            e.Result = result;
+                        }
+                    }
+                    else
+                    {
+                        List<Privilege> privList = crmAccess.RetrieveRightsAPI(user.Id, recordId, entityName);
+
+                        if (privList.Any(priv => priv.Permissions.Any(per => per.PermissionType == PermissionType.Role))) crmAccess.GetRoleDetail(privList, user, recordId, entityInfo);
+
+                        if (privList.Any(priv => priv.Permissions.Any(per => per.PermissionType == PermissionType.Shared))) crmAccess.GetShareDetail(privList, user, recordId, entityInfo);
+
+                        e.Result = privList;
+                    }
                 },
                 PostWorkCallBack = e =>
                 {
@@ -330,26 +389,95 @@ namespace MsCrmTools.AccessChecker
                     }
                     else
                     {
-                        var privList = (List<Privilege>)e.Result;
-                        var greenColor = Color.LightGreen;// Color.FromArgb(0, 158, 73);
-                        var redColor = Color.LightPink;// Color.FromArgb(232, 17, 35);
-
-                        foreach (Privilege privilege in privList)
+                        if (e.Result is List<Privilege> privList)
                         {
-                            Control panel = Helper.FindByTag(splitAccess, privilege.PrivilegeType);
-                            panel.BackColor = privilege.HasAccess ? greenColor : redColor;
-                            var privLabel = (TextBox)Helper.FindByTag(panel, privilege.PrivilegeType + "Label");
-                            privLabel.BackColor = panel.BackColor;
-                            privLabel.Text = privilege.PrivilegeId.ToString();
-                            FlowLayoutPanel flow = Helper.FindByTag(panel, privilege.PrivilegeType + "Flow") as FlowLayoutPanel;
-                            //flow.Controls.Clear();
-                            if (flow != null)
+                            var greenColor = Color.LightGreen;// Color.FromArgb(0, 158, 73);
+                            var redColor = Color.LightPink;// Color.FromArgb(232, 17, 35);
+
+                            foreach (Privilege privilege in privList)
                             {
-                                foreach (var permission in privilege.Permissions.Where(per => per.PermissionType != PermissionType.Role && per.PermissionType != PermissionType.Shared))
+                                Control panel = Helper.FindByTag(splitAccess, privilege.PrivilegeType);
+                                panel.BackColor = privilege.HasAccess ? greenColor : redColor;
+                                var privLabel = (TextBox)Helper.FindByTag(panel, privilege.PrivilegeType + "Label");
+                                privLabel.BackColor = panel.BackColor;
+                                privLabel.Text = privilege.PrivilegeId.ToString();
+                                FlowLayoutPanel flow = Helper.FindByTag(panel, privilege.PrivilegeType + "Flow") as FlowLayoutPanel;
+                                //flow.Controls.Clear();
+                                if (flow != null)
                                 {
-                                    flow.Controls.Add(new DisplayAccess(permission));
+                                    foreach (var permission in privilege.Permissions.Where(per => per.PermissionType != PermissionType.Role && per.PermissionType != PermissionType.Shared))
+                                    {
+                                        flow.Controls.Add(new DisplayAccess(permission));
+                                    }
                                 }
                             }
+                        }
+                        else
+                        {
+                            var result = (CheckAccessResult)e.Result;
+
+                            var greenColor = Color.FromArgb(0, 158, 73);
+                            var redColor = Color.FromArgb(232, 17, 35);
+
+                            textBox_PrimaryAttribute.Text = result.RecordName;
+
+                            pnlAppend.BackColor = result.HasAppendAccess
+                                                      ? greenColor
+                                                      : result.AppendPrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+                            pnlAppendTo.BackColor = result.HasAppendToAccess
+                                                        ? greenColor
+                                                        : result.AppendToPrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+                            pnlAssign.BackColor = result.HasAssignAccess
+                                                      ? greenColor
+                                                      : result.AssignPrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+                            pnlCreate.BackColor = result.HasCreateAccess
+                                                      ? greenColor
+                                                      : result.CreatePrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+                            pnlDelete.BackColor = result.HasDeleteAccess
+                                                      ? greenColor
+                                                      : result.DeletePrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+                            pnlRead.BackColor = result.HasReadAccess
+                                                    ? greenColor
+                                                    : result.ReadPrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+                            pnlShare.BackColor = result.HasShareAccess
+                                                     ? greenColor
+                                                     : result.SharePrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+                            pnlWrite.BackColor = result.HasWriteAccess
+                                                     ? greenColor
+                                                     : result.WritePrivilegeId != Guid.Empty ? redColor : Color.DarkGray;
+
+                            txtAppendPriv.BackColor = pnlAppend.BackColor;
+                            txtAppendPriv.Text = result.AppendPrivilegeId == Guid.Empty
+                                                          ? "Privilege does not exist for this entity"
+                                                          : result.AppendPrivilegeId.ToString();
+                            txtAppendToPriv.BackColor = pnlAppendTo.BackColor;
+                            txtAppendToPriv.Text = result.AppendToPrivilegeId == Guid.Empty
+                                                            ? "Privilege does not exist for this entity"
+                                                            : result.AppendToPrivilegeId.ToString();
+                            txtAssignPriv.BackColor = pnlAssign.BackColor;
+                            txtAssignPriv.Text = result.AssignPrivilegeId == Guid.Empty
+                                                          ? "Privilege does not exist for this entity"
+                                                          : result.AssignPrivilegeId.ToString();
+                            txtCreatePriv.BackColor = pnlCreate.BackColor;
+                            txtCreatePriv.Text = result.CreatePrivilegeId == Guid.Empty
+                                                          ? "Privilege does not exist for this entity"
+                                                          : result.CreatePrivilegeId.ToString();
+                            txtDeletePriv.BackColor = pnlDelete.BackColor;
+                            txtDeletePriv.Text = result.DeletePrivilegeId == Guid.Empty
+                                                          ? "Privilege does not exist for this entity"
+                                                          : result.DeletePrivilegeId.ToString();
+                            txtReadPriv.BackColor = pnlRead.BackColor;
+                            txtReadPriv.Text = result.ReadPrivilegeId == Guid.Empty
+                                                        ? "Privilege does not exist for this entity"
+                                                        : result.ReadPrivilegeId.ToString();
+                            txtSharePriv.BackColor = pnlShare.BackColor;
+                            txtSharePriv.Text = result.SharePrivilegeId == Guid.Empty
+                                                         ? "Privilege does not exist for this entity"
+                                                         : result.SharePrivilegeId.ToString();
+                            txtWritePriv.BackColor = pnlWrite.BackColor;
+                            txtWritePriv.Text = result.WritePrivilegeId == Guid.Empty
+                                                         ? "Privilege does not exist for this entity"
+                                                         : result.WritePrivilegeId.ToString();
                         }
 
                         ai.WriteEvent("User Checked", 1);

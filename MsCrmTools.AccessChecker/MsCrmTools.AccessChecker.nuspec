@@ -11,8 +11,9 @@
     <iconUrl>https://download-codeplex.sec.s-msft.com/Download?ProjectName=xrmtoolbox&amp;DownloadId=579949&amp;Build=20841</iconUrl>
     <description>Check a record access rights for a user</description>
     <summary>Check a record access rights for a user</summary>
-    <releaseNotes>Improvements and renaming entities to tables (Thanks, Carl Cookson)
-Fixed Search
+    <releaseNotes>
+      Handle back scenario when not connected using OAuth (ie. no access to webapi)
+      Fixed retrieval of primary name for searched record
     </releaseNotes>
     <tags>XrmToolBox Plugin AccessChecker</tags>
     <dependencies>
